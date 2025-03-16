@@ -1,0 +1,49 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, to_timestamp
+from pyspark.sql.types import BooleanType, DoubleType
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.regression import LinearRegression
+
+# Initialize Spark session
+spark = SparkSession.builder.appName("TimeSeriesAnalysis").getOrCreate()
+
+# Load dataset
+df = spark.read.csv("/content/traffic_dataset_with_trend.csv", header=True, inferSchema=True)
+
+# Convert Timestamp to datetime format
+df = df.withColumn("Timestamp", to_timestamp(col("Timestamp")))
+
+# Convert Events to boolean
+df = df.withColumn("Events", col("Events").cast(BooleanType()))
+
+# Convert Traffic Volume to double
+df = df.withColumn("Traffic Volume", col("Traffic Volume").cast(DoubleType()))
+
+# Select relevant columns
+df = df.select("Timestamp", "Traffic Volume")
+
+# Feature Engineering: Extract time-based features
+df = df.withColumn("Hour", col("Timestamp").substr(12, 2).cast("int"))
+df = df.withColumn("Day", col("Timestamp").substr(9, 2).cast("int"))
+df = df.withColumn("Month", col("Timestamp").substr(6, 2).cast("int"))
+df = df.withColumn("Year", col("Timestamp").substr(1, 4).cast("int"))
+
+# Assemble features
+vector_assembler = VectorAssembler(inputCols=["Hour", "Day", "Month", "Year"], outputCol="features")
+df = vector_assembler.transform(df)
+
+# Train-test split
+train_df, test_df = df.randomSplit([0.8, 0.2], seed=42)
+
+# Train Linear Regression model
+lr = LinearRegression(featuresCol="features", labelCol="Traffic Volume")
+model = lr.fit(train_df)
+
+# Make predictions
+predictions = model.transform(test_df)
+
+# Show predictions
+predictions.select("Timestamp", "Traffic Volume", "prediction").show(10)
+
+# Stop Spark session
+spark.stop()
