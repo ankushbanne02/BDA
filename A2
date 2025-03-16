@@ -1,0 +1,41 @@
+from pyspark.sql import SparkSession
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.clustering import KMeans
+
+# Step 1: Initialize Spark Session
+spark = SparkSession.builder.appName("KMeans_Clustering").getOrCreate()
+
+# Step 2: Create a Sample DataFrame (Replace with your Big Data)
+data = [
+    (1, 10.0, 20.0),
+    (2, 15.0, 25.0),
+    (3, 14.0, 24.0),
+    (4, 13.0, 23.0),
+    (5, 50.0, 60.0),
+    (6, 55.0, 65.0),
+    (7, 54.0, 64.0),
+    (8, 53.0, 63.0),
+]
+columns = ["id", "feature1", "feature2"]
+
+df = spark.createDataFrame(data, columns)
+
+# Step 3: Assemble Features into a Single Vector
+vector_assembler = VectorAssembler(inputCols=["feature1", "feature2"], outputCol="features")
+df_vector = vector_assembler.transform(df)
+
+# Step 4: Apply K-Means Clustering (K = 2 clusters)
+kmeans = KMeans(k=2, seed=1, featuresCol="features", predictionCol="cluster")
+model = kmeans.fit(df_vector)
+df_clustered = model.transform(df_vector)
+
+# Step 5: Show Clustered Data
+df_clustered.select("id", "features", "cluster").show(truncate=False)
+
+# Step 6: Show Cluster Centers
+print("Cluster Centers:")
+for center in model.clusterCenters():
+    print(center)
+
+# Stop Spark Session
+spark.stop()
