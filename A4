@@ -1,0 +1,50 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lower, regexp_replace
+from pyspark.ml.feature import Tokenizer, StopWordsRemover, CountVectorizer, IDF
+from pyspark.ml.classification import LogisticRegression
+from pyspark.ml import Pipeline
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+# Initialize Spark Session
+spark = SparkSession.builder.appName("TwitterSentimentAnalysis").getOrCreate()
+
+# Load dataset (assuming it's a CSV file with 'Sentiment' and 'SentimentText' columns)
+df = spark.read.csv("twitter_data.csv", header=True, inferSchema=True)
+
+# Select only required columns
+df = df.select("Sentiment", "SentimentText")
+
+# Text Preprocessing
+df = df.withColumn("SentimentText", lower(col("SentimentText")))  # Convert text to lowercase
+df = df.withColumn("SentimentText", regexp_replace(col("SentimentText"), "[^a-zA-Z\s]", ""))  # Remove special characters
+
+# Tokenization
+tokenizer = Tokenizer(inputCol="SentimentText", outputCol="words")
+stopwords_remover = StopWordsRemover(inputCol="words", outputCol="filtered_words")
+
+# Feature Extraction (TF-IDF)
+vectorizer = CountVectorizer(inputCol="filtered_words", outputCol="raw_features")
+idf = IDF(inputCol="raw_features", outputCol="features")
+
+# Train-Test Split
+train_df, test_df = df.randomSplit([0.8, 0.2], seed=42)
+
+# Logistic Regression Model
+lr = LogisticRegression(featuresCol="features", labelCol="Sentiment")
+
+# Create a pipeline
+pipeline = Pipeline(stages=[tokenizer, stopwords_remover, vectorizer, idf, lr])
+
+# Train the model
+model = pipeline.fit(train_df)
+
+# Make predictions
+predictions = model.transform(test_df)
+
+# Evaluate Model
+evaluator = MulticlassClassificationEvaluator(labelCol="Sentiment", predictionCol="prediction", metricName="accuracy")
+accuracy = evaluator.evaluate(predictions)
+print(f"Model Accuracy: {accuracy:.2f}")
+
+# Show some predictions
+predictions.select("SentimentText", "Sentiment", "prediction").show(10)
