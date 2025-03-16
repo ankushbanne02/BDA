@@ -1,0 +1,274 @@
+import os
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+# Initialize Spark session
+spark = SparkSession.builder.appName("WeatherAnalysis").getOrCreate()
+# Base path to the cleaned weather data
+base_path = "/content/cleaned_weather_data"
+# Initialize a dictionary to store the hottest days per year
+hottest_days = {}
+# Loop through the years to find the hottest day
+for year in range(2015, 2023):
+year_dir = os.path.join(base_path, str(year))
+# Check if the year directory exists
+if not os.path.exists(year_dir):
+print(f"Year directory not found: {year_dir}")
+continue
+for filename in os.listdir(year_dir):
+if filename.endswith('.csv'):
+file_path = os.path.join(year_dir, filename)
+# Read the CSV file into a DataFrame
+df = spark.read.csv(file_path, header=True, inferSchema=True)
+# Check if DataFrame is empty
+if df.rdd.isEmpty():
+print(f"Skipping empty file: {filename}")
+continue
+# Ensure 'MAX' column exists, otherwise create it with NULL values
+if "MAX" not in df.columns:
+df = df.withColumn("MAX", F.lit(None))
+# Find the hottest day for the current DataFrame
+max_temp = df.agg(F.max("MAX")).collect()[0][0]
+if max_temp is not None:
+max_day = df.filter(df["MAX"] == max_temp).orderBy(F.desc("DATE")).first()
+if max_day:
+# Store only the first hottest day per year
+if year not in hottest_days:
+hottest_days[year] = (max_day.STATION, max_day.NAME, max_day.DATE, max_day.MAX)
+# Convert results to a DataFrame for display
+if hottest_days:
+hottest_days_list = [(year, *data) for year, data in hottest_days.items()]
+hottest_days_df = spark.createDataFrame(hottest_days_list, ["YEAR", "STATION", "NAME", "DATE", "MAX"])
+hottest_days_df.show()
+else:
+print("No hottest days found across the datasets.")
+
+
+
+
+
+import
+os
+from
+pyspark.sql
+import
+SparkSession
+from
+pyspark.sql
+import
+functions
+as
+F
+# Initialize Spark session
+spark = SparkSession.builder.appName
+(
+"Coldest Day in March"
+)
+.getOrCreate
+()
+# Base path to the weather data
+base_path =
+"/content/cleaned_weather_data"
+# Initialize an empty list to store results
+march_data =
+[]
+# Loop through the years to collect March data
+for
+year
+in
+range
+(
+2015
+,
+2023
+):
+year_dir = os.path.join
+(
+base_path
+,
+str
+(
+year
+))
+# Check if the directory exists
+if
+not
+os.path.exists
+(
+year_dir
+):
+print
+(
+f
+"Year directory not found:
+{
+year_dir
+}
+"
+)
+continue
+for
+filename
+in
+os.listdir
+(
+year_dir
+):
+if
+filename.endswith
+(
+'.csv'
+):
+file_path = os.path.join
+(
+year_dir
+,
+filename
+)
+# Read the CSV file into a DataFrame
+df = spark.read.csv
+(
+file_path
+,
+header=
+True
+,
+inferSchema=
+True
+)
+# Check if DataFrame is empty
+if
+df.rdd.isEmpty
+():
+print
+(
+f
+"Skipping empty file:
+{
+filename
+}
+"
+)
+continue
+# Ensure 'DATE' and 'MIN' columns exist
+if
+"DATE"
+not
+in
+df.columns
+or
+"MIN"
+not
+in
+df.columns
+:
+print
+(
+f
+"Skipping
+{
+filename
+}
+due to missing 'DATE' or 'MIN' column."
+)
+continue
+# Filter for March data (assuming DATE is stored a
+s a string)
+march_df = df.
+filter
+(
+df
+[
+"DATE"
+]
+.contains
+(
+'-03-'
+))
+# Check if March data is empty
+if
+march_df.rdd.isEmpty
+():
+continue
+# Get the coldest day for March in the current Dat
+aFrame
+coldest_day = march_df.orderBy
+(
+F.asc
+(
+"MIN"
+))
+.first
+()
+# Append results
+if
+coldest_day
+is
+not
+None
+:
+march_data.append
+((
+coldest_day.STATION
+,
+coldest_day.NAME
+,
+coldest_day.DATE
+,
+coldest_day.MIN
+))
+# Convert results to a DataFrame for display
+if
+march_data
+:
+coldest_day_df = spark.createDataFrame
+(
+march_data
+,
+[
+"STATION"
+,
+"NAME"
+,
+"DATE"
+,
+"MIN"
+])
+# Sort by MIN to get the overall coldest day in Ma
+rch
+overall_coldest_day = coldest_day_df.orderBy
+(
+F.asc
+(
+"MIN"
+))
+.first
+()
+if
+overall_coldest_day
+:
+overall_coldest_day_df = spark.createDataF
+rame
+([
+overall_coldest_day
+],
+[
+"STATION"
+,
+"NAME"
+,
+"DATE"
+,
+"MIN"
+])
+print
+(
+"\nOverall coldest day in March:"
+)
+overall_coldest_day_df.show
+()
+else
+:
+print
+(
+"No March data found across the datasets."
+)
