@@ -1,0 +1,11 @@
+Code :
+from pyspark import SparkContext
+sc = SparkContext("local", "WordCount")
+text_rdd = sc.textFile("inpuit.txt")
+words_rdd = text_rdd.flatMap(lambda line: line.split(" ")) \
+.map(lambda word: (word, 1))
+word_count_rdd = words_rdd.reduceByKey(lambda x, y: x + y)
+print(word_count_rdd.collect())
+sc.stop()
+Output:
+[('hello', 2), ('world', 1), ('', 2), ('PySpark', 2), ('is', 1), ('fun', 1)
