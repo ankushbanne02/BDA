@@ -1,0 +1,32 @@
+from pyspark.sql import SparkSession
+from pyspark.ml.feature import VectorAssembler, PCA
+
+# Step 1: Initialize Spark Session
+spark = SparkSession.builder.appName("PCA_BigData").getOrCreate()
+
+# Step 2: Create a Sample DataFrame (Replace with your Big Data)
+data = [
+    (1, 10.0, 20.0, 30.0),
+    (2, 15.0, 25.0, 35.0),
+    (3, 14.0, 24.0, 34.0),
+    (4, 13.0, 23.0, 33.0),
+    (5, 12.0, 22.0, 32.0),
+]
+columns = ["id", "feature1", "feature2", "feature3"]
+
+df = spark.createDataFrame(data, columns)
+
+# Step 3: Assemble Features into a Single Vector
+vector_assembler = VectorAssembler(inputCols=["feature1", "feature2", "feature3"], outputCol="features")
+df_vector = vector_assembler.transform(df)
+
+# Step 4: Apply PCA (Reducing to 2 Principal Components)
+pca = PCA(k=2, inputCol="features", outputCol="pca_features")
+pca_model = pca.fit(df_vector)
+df_pca = pca_model.transform(df_vector)
+
+# Step 5: Show Transformed Data
+df_pca.select("id", "pca_features").show(truncate=False)
+
+# Stop Spark Session
+spark.stop()
